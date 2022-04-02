@@ -22,6 +22,7 @@ x, y, z = [], [], [] # lists to record positions of the Earth during time steps
 
 nsteps = 100000
 dt = 10 * yr / nsteps
+print(dt)
 
 for n in range(nsteps):
     r12 = ((x1-x2)**2 + (y1-y2)**2 + (z1-z2)**2)**0.5

@@ -88,36 +88,139 @@
 #
 # Record positions and velocities of the planets and the star. Make a scatter plot of $x$ and $y$ coordinates (converted to the astronomical unit AU) of the star and planets in half-day intervals. Plot the $z$-component of velocity of the star as a function of time. Compare to Figures 1 and 2 in <a href="https://ui.adsabs.harvard.edu/abs/2005ApJ...622.1182L/abstract">Laughlin et al. 2005</a> reproduced below. Can you reproduce the figures? We will discuss what these figures show in class.
 # %% codecell
-# reading initial planet positions from Table 3 of Laughlin et al. 2005
+
 import numpy as np
+import matplotlib.pyplot as plt
+import warnings
+plt.rcParams['figure.figsize'] = [8, 8]
+warnings.filterwarnings('ignore')
+# %% codecell
+
+#1a
+
+def nbody_integrate(x, v, mp, dt=None, nsteps=None, acc_func=None, scheme='KD'):
+    outs = np.zeros((3,nsteps,3))
+    #print(outs[0][1])
+    for j in range(nsteps):
+
+        xs = np.stack([x for i in range(x.shape[0])])
+        mps = np.stack([mp for i in range(x.shape[0])])
+        #print(mps)
+
+        r = np.array([np.linalg.norm(xs[i]-x[i],axis=1) for i in range(x.shape[0])])
+
+        a = np.array([np.sum((xs[i]-x[i])*np.where(r[i][:,np.newaxis] != 0, G*mps[i][:,np.newaxis]/(r[i][:,np.newaxis]**3), 0),axis=0) for i in range(x.shape[0])])
+
+        #print(a)
+
+        v = v + a*dt
+
+        x = x + v*dt
+
+        for idx,coord in enumerate(x):
+            #print(idx,coord)
+            outs[idx][j] = np.copy(coord)
+    return outs
+
+# %% codecell
+
+#1b
+
+
+AU = 1.49598e+13 # 1 AU = average distance from the Earth to the Sun in centimeters (cm)
+G = 6.67259e-08 # universal gravitational constant in cgs units
+yr =  3.15569e+07 # 1 year in seconds
+msun = 1.9891e33 # mass of the Sun in grams
+mearth = 5.9742e27 # mass of the Earth in grams
+vcirc = (G*msun/AU)**0.5 # circular velocity = sqrt(G*Msun/AU)
+
+x1, y1, z1 = 0., 0., 0. # coordinates of the Sun
+x2, y2, z2 =  AU, 0., 0. # coordinates of the Earth
+
+vx1, vy1, vz1 = 0., 0., 0. # initial velocity of the Sun
+vx2, vy2, vz2 = 0., vcirc, 0. # initial velocity of the Earth
+
+m1, m2 = msun, mearth # masses
+
+x, y, z = [], [], [] # lists to record positions of the Earth during time steps
+
+x = np.array([[0,0,0],[AU,0,0]])
+v = np.array([[0,0,0],[0,vcirc,0]])
+m = np.array([m1,m2])
+
+nsteps = 100000
+dt = 10 * yr / nsteps
+
+out = nbody_integrate(x,v,m,dt=dt,nsteps=nsteps)
+
+#print(out)
+
+sun = out[0]
+earth = out[1]
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+
+plt.plot(sun[:,0],sun[:,1],label="sun")
+plt.plot(earth[:,0],earth[:,1],label="earth")
+plt.legend()
+
+ax.set_aspect('equal', adjustable='box')
+
+plt.show()
+
+
+# %% codecell
+
 
 data_file = 'https://astro.uchicago.edu/~andrey/classes/a211/data/gj876.dat'
 name = np.loadtxt(data_file, usecols=[0], unpack=True, dtype=str)
 mp, xp, yp, zp, vxp, vyp, vzp = np.loadtxt(data_file, usecols=(1,2,3,4,5,6,7), unpack=True)
 #print(name, mp, xp, yp, zp, vxp, vyp, vzp)
-# %% codecell
+
 AU = 1.49598e+13 # 1 AU = average distance from the Earth to the Sun in centimeters (cm)
 G = 6.67259e-08 # universal gravitational constant in cgs units
+DAY = 86400
 
-# %% codecell
+start_date = 2449680
+end_date = 2453000
+TIME_DAYS = end_date - start_date
+
+plot_date = 2449710
+plot_length = 60
+
 x = np.column_stack((xp,yp,zp))
 v = np.column_stack((vxp,vyp,vzp))
-# %% codecell
 
-def nbody_integrate(x, v, mp, dt=None, nsteps=None, acc_func=None, scheme='KD'):
-    xs = np.stack([x for i in range(x.shape[0])])
-    r = np.array([np.linalg.norm(xs[i]-x[i],axis=1) for i in range(x.shape[0])])
-    #a = np.array([(xs[i]-x[i])*r[i][:,np.newaxis] for i in range(x.shape[0])])
-    a = np.array([np.sum((xs[i]-x[i])*r[i][:,np.newaxis],axis=0) for i in range(x.shape[0])])
-    print(a)
-    a = np.array([np.sum((xs[i]-x[i])*np.where(mp[i]/r[i][:,np.newaxis] != np.inf, mp[i]/r[i][:,np.newaxis], 0),axis=0) for i in range(x.shape[0])])
-    print(a)
-    test = np.where(mp[0]/r[0][:,np.newaxis] != np.inf, mp[0]/r[0][:,np.newaxis], 0)
-    print(test)
-    #print(mp[0])
-    #print(v)
-    #print(v+a*dt)
+steps = 13280
+dt = (TIME_DAYS * DAY)/steps
 
-# %% codecell
+out = nbody_integrate(x,v,mp,dt=dt,nsteps=steps)
+star = out[0]
+planet1 = out[1]
+planet2 = out[2]
 
-print(nbody_integrate(x,v,mp,dt=3000,nsteps=100000))
+day_jump = DAY/dt
+jumps = int((DAY/2)/dt)
+plot_start = int(day_jump*(plot_date-start_date))
+plot_end = int(plot_start + (day_jump)*plot_length)
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+
+starx = [np.average(star[:,0]/AU)]
+stary = [np.average(star[:,1]/AU)]
+
+plt.plot(starx,stary, marker="o", markersize=15, markeredgecolor="dimgrey", markerfacecolor="dimgrey")
+
+plt.scatter(planet1[:,0][0::jumps]/AU,planet1[:,1][0::jumps]/AU,s=0.05,color='black')
+plt.scatter(planet2[:,0][0::jumps]/AU,planet2[:,1][0::jumps]/AU,s=0.05,color='black')
+
+plt.plot(planet1[:,0][plot_start:plot_end:jumps]/AU,planet1[:,1][plot_start:plot_end:jumps]/AU,color='black',zorder=0)
+plt.scatter(planet1[:,0][plot_start:plot_end:jumps]/AU,planet1[:,1][plot_start:plot_end:jumps]/AU,s=15,color='black',zorder=1)
+
+plt.plot(planet2[:,0][plot_start:plot_end:jumps]/AU,planet2[:,1][plot_start:plot_end:jumps]/AU,color='black',zorder=0)
+plt.scatter(planet2[:,0][plot_start:plot_end:jumps]/AU,planet2[:,1][plot_start:plot_end:jumps]/AU,s=25,color='black',zorder=1)
+
+ax.set_aspect('equal', adjustable='box')
+plt.show()
