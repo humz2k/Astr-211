@@ -1,5 +1,4 @@
 # %% codecell
-
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import AutoMinorLocator
@@ -7,9 +6,7 @@ import warnings
 
 plt.rcParams['figure.figsize'] = [8, 8]
 warnings.filterwarnings('ignore')
-
 # %% codecell
-
 def acc_basic(x, mp, G = 6.67259e-08):
     xs = np.stack([x for i in range(x.shape[0])])
     mps = np.stack([mp for i in range(x.shape[0])])
@@ -99,9 +96,7 @@ class simulation:
         out = self.nbody_integrate(dt,nsteps,acc_func = acc_func, scheme=scheme)
 
         if object_names == None:
-            object_names = self.object_names
-
-        print(self.mp_init)
+            object_names = self.object_names[:]
 
         if len(object_names) != self.mp_init.shape[0]:
             raise Exception("object names must be same shape as x, v, mp")
@@ -226,7 +221,7 @@ class simulation:
             raise Exception("couldn't plot parameters given")
 
         if object_names == None:
-            object_names = self.object_names
+            object_names = self.object_names[:]
         if len(object_names) != self.mp_init.shape[0]:
             raise Exception("object names must be same shape as x, v, mp")
 
@@ -326,7 +321,7 @@ class simulation:
         out = self.nbody_integrate(dt=dt,nsteps=steps,acc_func = acc_func,scheme=scheme)
 
         if object_names == None:
-            object_names = self.object_names
+            object_names = self.object_names[:]
 
         if len(object_names) != self.mp_init.shape[0]:
             raise Exception("Wrong number of object names")
@@ -356,6 +351,8 @@ class simulation:
 
         day_jump = DAY/dt
         jumps = int((DAY/2)/dt)
+        if jumps == 0:
+            jumps = 1
         plot_start = int(day_jump*(plot_date-start_date))
         plot_end = int(plot_start + (day_jump)*plot_length)
 
@@ -411,13 +408,22 @@ class simulation:
                         component = "z",
                         y_minor_ticks=4,
                         y_nbins=3,
+                        x_minor_ticks=5,
+                        x_nbins=10,
                         tick_direction='in',
                         tick_width=1,
                         major_tick_size=10,
                         minor_tick_size=5,
                         tick_label_size=12,
                         ticks_all_around=True,
-                        flip=True):
+                        flip=True,
+                        color="black",
+                        line_size=1,
+                        x_label="default",
+                        label_size=15,
+                        x_label_pad=8,
+                        y_label="Radial Velocity (m/s)",
+                        y_label_pad=5):
 
         days = end_date-start_date
         dt = (days * DAY)/steps
@@ -428,7 +434,7 @@ class simulation:
         pos,vel = self.nbody_integrate(dt=dt,nsteps=steps,acc_func = acc_func,scheme=scheme,return_velocities=True)
 
         if object_names == None:
-            object_names = self.object_names
+            object_names = self.object_names[:]
         if len(object_names) != self.mp_init.shape[0]:
             raise Exception("object names wrong length")
 
@@ -455,13 +461,16 @@ class simulation:
         fig = plt.figure()
         ax = fig.add_subplot(111)
 
-        plt.plot(times,data)
+        plt.plot(times,data,c=color,linewidth=line_size)
 
         if y_minor_ticks != None:
-            #ax.xaxis.set_minor_locator(AutoMinorLocator(minor_ticks))
             ax.yaxis.set_minor_locator(AutoMinorLocator(y_minor_ticks))
 
+        if x_minor_ticks != None:
+            ax.xaxis.set_minor_locator(AutoMinorLocator(x_minor_ticks))
+
         plt.locator_params(axis='y', nbins=y_nbins)
+        plt.locator_params(axis='x', nbins=x_nbins)
 
         ax.tick_params(which='both', width=tick_width, direction=tick_direction)
         ax.tick_params(which='major', length=major_tick_size)
@@ -469,99 +478,87 @@ class simulation:
 
         plt.yticks([-200,0,200],fontsize=tick_label_size)
         plt.xticks(fontsize=tick_label_size)
+        if x_label != None:
+            if x_label.lower() == "default":
+                x_label = "JD—" + str(plot_offset)
+            ax.set_xlabel(x_label,fontsize=label_size,labelpad=x_label_pad)
+        if y_label != None:
+            ax.set_ylabel(y_label,fontsize=label_size,labelpad=y_label_pad)
 
         if ticks_all_around:
             ax.yaxis.set_ticks_position('both')
             ax.xaxis.set_ticks_position('both')
 
         plt.show()
-
-
+# %% markdown
+### 1b
 # %% codecell
-
-#1b
-
-AU = 1.49598e+13 # 1 AU = average distance from the Earth to the Sun in centimeters (cm)
-G = 6.67259e-08 # universal gravitational constant in cgs units
-yr =  3.15569e+07 # 1 year in seconds
-msun = 1.9891e33 # mass of the Sun in grams
-mearth = 5.9742e27 # mass of the Earth in grams
-vcirc = (G*msun/AU)**0.5 # circular velocity = sqrt(G*Msun/AU)
-
-x1, y1, z1 = 0., 0., 0. # coordinates of the Sun
-x2, y2, z2 =  AU, 0., 0. # coordinates of the Earth
-
-vx1, vy1, vz1 = 0., 0., 0. # initial velocity of the Sun
-vx2, vy2, vz2 = 0., vcirc, 0. # initial velocity of the Earth
-
-m1, m2 = msun, mearth # masses
-
-x, y, z = [], [], [] # lists to record positions of the Earth during time steps
+#Initialize earth_sun_system
+AU = 1.49598e+13
+G = 6.67259e-08
+yr =  3.15569e+07
+msun = 1.9891e33
+mearth = 5.9742e27
+vcirc = (G*msun/AU)**0.5
 
 x = np.array([[0,0,0],[AU,0,0]])
 v = np.array([[0,0,0],[0,vcirc,0]])
-m = np.array([m1,m2])
+m = np.array([msun,mearth])
 
+#Initialize simulation
 earth_sun_system = simulation(x,v,m,object_names = ["Sun","Earth"])
-
+# %% markdown
+#### Plot system
+# %% codecell
 nsteps = 10000
 dt = 10 * yr / nsteps
-
 earth_sun_system.basic_topdown_plot(dt,nsteps,scheme="dkd",to_plot="xy",static_star=0,title="Earth Sun System",x_label="x (AU)",y_label="y (AU)",scale=AU,colors=["dimgrey","black"])
-
 # %% codecell
-
 nsteps = 10000
 dt = 10 * yr / nsteps
-
-earth_sun_system.basic_d_t_plot(dt,nsteps,base_object="Center",to_plot=["Earth"],distance_scale=AU,time_scale=yr,x_label="Time (Years)",y_label="Distance (AU)",title="Earth-Sun Distance, dt = " + str(dt))
-
+print("Plotting E->C, S->C, E->S for nsteps =",nsteps,"and dt =",dt)
 # %% codecell
-
-earth_sun_system.basic_d_t_plot(dt,nsteps,base_object="Center",to_plot=["Sun"],distance_scale=AU,time_scale=yr,x_label="Time (Years)",y_label="Distance (AU)",title="Earth-Sun Distance, dt = " + str(dt))
-
+earth_sun_system.basic_d_t_plot(dt,nsteps,base_object="Center",to_plot=["Earth"],distance_scale=AU,time_scale=yr,x_label="Time (Years)",y_label="Distance (AU)",title="Earth-Center Distance, dt = " + str(dt))
 # %% codecell
-
+earth_sun_system.basic_d_t_plot(dt,nsteps,base_object="Center",to_plot=["Sun"],distance_scale=AU,time_scale=yr,x_label="Time (Years)",y_label="Distance (AU)",title="Sun-Center Distance, dt = " + str(dt))
+# %% codecell
 earth_sun_system.basic_d_t_plot(dt,nsteps,base_object="Sun",to_plot=["Earth"],distance_scale=AU,time_scale=yr,x_label="Time (Years)",y_label="Distance (AU)",title="Earth-Sun Distance, dt = " + str(dt))
-
 # %% codecell
-
+nsteps = 5000
+dt = 10 * yr / nsteps
+print("Plotting E->C, S->C, E->S for nsteps =",nsteps,"and dt =",dt)
+# %% codecell
+earth_sun_system.basic_d_t_plot(dt,nsteps,base_object="Center",to_plot=["Earth"],distance_scale=AU,time_scale=yr,x_label="Time (Years)",y_label="Distance (AU)",title="Earth-Center Distance, dt = " + str(dt))
+# %% codecell
+earth_sun_system.basic_d_t_plot(dt,nsteps,base_object="Center",to_plot=["Sun"],distance_scale=AU,time_scale=yr,x_label="Time (Years)",y_label="Distance (AU)",title="Sun-Center Distance, dt = " + str(dt))
+# %% codecell
+earth_sun_system.basic_d_t_plot(dt,nsteps,base_object="Sun",to_plot=["Earth"],distance_scale=AU,time_scale=yr,x_label="Time (Years)",y_label="Distance (AU)",title="Earth-Sun Distance, dt = " + str(dt))
+# %% codecell
 nsteps = 1000
 dt = 10 * yr / nsteps
-
-earth_sun_system.basic_d_t_plot(dt,nsteps,base_object="Center",to_plot=["Earth"],distance_scale=AU,time_scale=yr,x_label="Time (Years)",y_label="Distance (AU)",title="Earth-Sun Distance, dt = " + str(dt))
-
+print("Plotting E->C, S->C, E->S for nsteps =",nsteps,"and dt =",dt)
 # %% codecell
-
-earth_sun_system.basic_d_t_plot(dt,nsteps,base_object="Center",to_plot=["Sun"],distance_scale=AU,time_scale=yr,x_label="Time (Years)",y_label="Distance (AU)",title="Earth-Sun Distance, dt = " + str(dt))
-
+earth_sun_system.basic_d_t_plot(dt,nsteps,base_object="Center",to_plot=["Earth"],distance_scale=AU,time_scale=yr,x_label="Time (Years)",y_label="Distance (AU)",title="Earth-Center Distance, dt = " + str(dt))
 # %% codecell
-
+earth_sun_system.basic_d_t_plot(dt,nsteps,base_object="Center",to_plot=["Sun"],distance_scale=AU,time_scale=yr,x_label="Time (Years)",y_label="Distance (AU)",title="Sun-Center Distance, dt = " + str(dt))
+# %% codecell
 earth_sun_system.basic_d_t_plot(dt,nsteps,base_object="Sun",to_plot=["Earth"],distance_scale=AU,time_scale=yr,x_label="Time (Years)",y_label="Distance (AU)",title="Earth-Sun Distance, dt = " + str(dt))
-
 # %% codecell
-
 nsteps = 100
 dt = 10 * yr / nsteps
-
-earth_sun_system.basic_d_t_plot(dt,nsteps,base_object="Center",to_plot=["Earth"],distance_scale=AU,time_scale=yr,x_label="Time (Years)",y_label="Distance (AU)",title="Earth-Sun Distance, dt = " + str(dt))
-
+print("Plotting E->C, S->C, E->S for nsteps =",nsteps,"and dt =",dt)
 # %% codecell
-
-earth_sun_system.basic_d_t_plot(dt,nsteps,base_object="Center",to_plot=["Sun"],distance_scale=AU,time_scale=yr,x_label="Time (Years)",y_label="Distance (AU)",title="Earth-Sun Distance, dt = " + str(dt))
-
+earth_sun_system.basic_d_t_plot(dt,nsteps,base_object="Center",to_plot=["Earth"],distance_scale=AU,time_scale=yr,x_label="Time (Years)",y_label="Distance (AU)",title="Earth-Center Distance, dt = " + str(dt))
 # %% codecell
-
+earth_sun_system.basic_d_t_plot(dt,nsteps,base_object="Center",to_plot=["Sun"],distance_scale=AU,time_scale=yr,x_label="Time (Years)",y_label="Distance (AU)",title="Sun-Center Distance, dt = " + str(dt))
+# %% codecell
 earth_sun_system.basic_d_t_plot(dt,nsteps,base_object="Sun",to_plot=["Earth"],distance_scale=AU,time_scale=yr,x_label="Time (Years)",y_label="Distance (AU)",title="Earth-Sun Distance, dt = " + str(dt))
-
+# %% markdown
+### 2
 # %% codecell
-
-
 data_file = 'https://astro.uchicago.edu/~andrey/classes/a211/data/gj876.dat'
 name = np.loadtxt(data_file, usecols=[0], unpack=True, dtype=str)
 mp, xp, yp, zp, vxp, vyp, vzp = np.loadtxt(data_file, usecols=(1,2,3,4,5,6,7), unpack=True)
-
-#G = 6.67259e-08 # universal gravitational constant in cgs units
 
 start_date = 2449680
 end_date = 2453000
@@ -569,15 +566,13 @@ end_date = 2453000
 plot_date = 2449710
 plot_length = 60
 
-steps = 13280 * 2
+steps = int(13280 * 2)
 
 x = np.column_stack((xp,yp,zp))
 v = np.column_stack((vxp,vyp,vzp))
 
 gj876 = simulation(x,v,mp,object_names = ["Star","Planet 1","Planet 2"])
-
-#gj876.laughlin_topdown_plot(steps,start_date,end_date,plot_date,plot_length,star="object0",sizes=[15,25])
-
-gj876.laughlin_velocity_time(steps,start_date,end_date,plot_offset = 2440000,component="y",flip=True)
-
-#gj876.basic_d_t_plot(dt=21600,nsteps=steps,base_object="center",to_plot=["Star"])
+# %% codecell
+gj876.laughlin_topdown_plot(steps,start_date,end_date,plot_date,plot_length,scheme="dkd",star="Star",sizes=[15,25])
+# %% codecell
+gj876.laughlin_velocity_time(steps,start_date,end_date,scheme = 'dkd',plot_offset = 2440000,component="y",flip=True)
