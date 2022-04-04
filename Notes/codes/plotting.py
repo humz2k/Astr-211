@@ -82,3 +82,40 @@ def taylor_exp_illustration(figsize=3.0):
     plt.show()
     return
 
+def plot_line_points(x, y, figsize=6, xlabel=' ', ylabel=' ', col= 'darkslateblue', 
+                     xp = None, yp = None, eyp=None, points = False, pmarker='.', 
+                     psize=1., pcol='slateblue',
+                     legend=None, plegend = None, legendloc='lower right', 
+                     plot_title = None, grid=None, figsave = None):
+    plt.figure(figsize=(figsize,figsize))
+    plt.xlabel(xlabel); plt.ylabel(ylabel)
+    # Initialize minor ticks
+    plt.minorticks_on()
+
+    if legend:
+        plt.plot(x, y, lw = 1., c=col, label = legend)
+        if points: 
+            if plegend:
+                plt.scatter(xp, yp, marker=pmarker, s=psize, c=pcol, label=plegend)
+            else:
+                plt.scatter(xp, yp, marker=pmarker, s=psize, c=pcol)
+            if eyp is not None:
+                plt.errorbar(xp, yp, eyp, linestyle='none', marker=pmarker, color=pcol, markersize=psize)
+        plt.legend(frameon=False, loc=legendloc, fontsize=3.*figsize)
+    else:
+        plt.plot(x, y, lw = 1., c=col)
+        if points:
+            plt.scatter(xp, yp, marker=pmarker, s=psize, c=pcol)
+
+    if plot_title:
+        plt.title(plot_title, fontsize=3.*figsize)
+        
+    if grid: 
+        plt.grid(linestyle='dotted', lw=0.5, color='lightgray')
+        
+    if figsave:
+        plt.savefig(figsave, bbox_inches='tight')
+
+    plt.show()
+    
+
