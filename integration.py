@@ -1,5 +1,7 @@
+# %% codecell
 import matplotlib.pyplot as plt
 import numpy as np
+# %% codecell
 
 #function to integrate
 def f(x):
@@ -16,61 +18,68 @@ def integrate(f,a,b,nsteps,middle=True):
     bins = np.arange(a,b+bin_size,bin_size) #bin size -> range
     f_bins = f(bins) #call f on this range
 
-    bar_xs = bins[:-1]+bin_size/2 #So  ca
+    bar_xs = bins[:-1]+bin_size/2 #So I can plot vs actual curve
 
+    #Caculate average height of trapezoid
     if middle:
         averages = (f_bins[1:] + f_bins[:-1])/2
     else:
         averages = f_bins[:-1]
-    return bin_size,bar_xs,averages
 
-def get_error(f,f_integral,a,b,start=10,end=1000,step=10,middle=True):
-    expected = f_integral(b)-f_integral(a)
-    steps = np.arange(start,end,step)
-    ferr = []
-    bins = []
+    return np.sum(averages*bin_size),bin_size,bar_xs,averages #return calculate value,bin size used,and values for plots
+
+def get_error(integral_func,f,f_integral,a,b,start=10,end=1000,step=10):
+
+    '''
+    Is there a way to do something like this in numpy without a loop?
+    i.e. call a function with one of the inputs as an array and then get an array of results?
+    '''
+
+    expected = f_integral(b)-f_integral(a) #calculated actual value
+    steps = np.arange(start,end,step) #create a range for steps
+    ferr = [] #save ferr
+    bins = [] #save bins
     for s in steps:
-        bin_size,bar_xs,averages = integrate(f,a,b,s,middle=middle)
+        calculated,bin_size,_,_ = integral_func(f,a,b,s) #call the integrate function
         bins.append(bin_size)
-        #print(bin_size)
-        calculated = np.sum(averages*bin_size)
-        #print(calculated)
-        #print(np.abs(calculated/expected - 1.))
         ferr.append(np.abs(calculated/expected - 1.))
     return steps,np.array(ferr),bins
-
-steps,ferr,bins = get_error(f,f_integral,0,100)
-#print(ferr)
-plt.plot(bins,ferr)
-plt.xscale('log')
-#plt.x_label("y")
-plt.gca().invert_xaxis()
-'''
-last_low = 1
-plt.text(steps[0] * (1 + 0.01), ferr[0] * (1 + 0.01) , f'{bins[0]:.5f}', fontsize=5)
-for i in range(len(steps)):
-    if ferr[i] > last_low:
-        plt.text(steps[i] * (1 + 0.01), ferr[i] * (1 + 0.01) , f'{bins[i]:.5f}', fontsize=5)
-    else:
-        last_low = ferr[i]
-'''
-
-plt.show()
-
-
-'''
+# %% markdown
+### Plotting the integration bins on actual curve
+# %% codecell
 a,b = 0,100
-steps = 500
+steps = 10
 xs = np.arange(a,b+1)
 expected = f_integral(b)-f_integral(a)
-
-bin_size,bar_xs,averages = integrate(f,a,b,steps,middle=True)
-calculated = np.sum(averages*bin_size)
-ferr = np.abs(calculated/expected - 1.)
-print(ferr)
-'''
-'''
+_,bin_size,bar_xs,averages = integrate(f,a,b,steps)
 plt.bar(bar_xs,averages,width=bin_size,color="red",zorder=0)
 plt.plot(xs,f(xs),label="curve",zorder=1)
+plt.title("Bins: " + str(steps))
 plt.show()
-'''
+# %% codecell
+a,b = 0,100
+steps = 100
+xs = np.arange(a,b+1)
+expected = f_integral(b)-f_integral(a)
+_,bin_size,bar_xs,averages = integrate(f,a,b,steps)
+plt.bar(bar_xs,averages,width=bin_size,color="red",zorder=0)
+plt.plot(xs,f(xs),label="curve",zorder=1)
+plt.title("Bins: " + str(steps))
+plt.show()
+# %% markdown
+### Plotting ferr against binsize
+##### I don't think that the error ever gets close to machine precision
+# %% codecell
+steps,ferr,bins = get_error(integral_func=integrate,
+                            f=f,
+                            f_integral=f_integral,
+                            a=0,
+                            b=100)
+
+plt.plot(bins,ferr)
+plt.xscale('log')
+plt.xlabel("Trap width")
+plt.ylabel("ferr")
+plt.gca().invert_xaxis()
+plt.show()
+# %% codecell
