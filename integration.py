@@ -43,7 +43,7 @@ def get_error(integral_func,f,f_integral,a,b,start=10,end=1000,step=10):
         calculated,bin_size,_,_ = integral_func(f,a,b,s) #call the integrate function
         bins.append(bin_size)
         ferr.append(np.abs(calculated/expected - 1.))
-    return steps,np.array(ferr),bins
+    return steps,np.array(ferr),np.array(bins)
 # %% markdown
 ### Plotting the integration bins on actual curve
 # %% codecell
