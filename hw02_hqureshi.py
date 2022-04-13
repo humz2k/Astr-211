@@ -13,7 +13,7 @@ plt.rcParams['figure.figsize'] = [8, 8]
 #%matplotlib inline
 
 # %% markdown
-### Exercise 1
+### Exercise 1 (Exercise 4 is at the bottom of the page)
 # %% codecell
 def r1(func, a, b, nsteps,*args):
     return (4*trapzd(func, a, b, 2*nsteps,*args) - trapzd(func, a, b, nsteps,*args)) / 3
@@ -45,6 +45,8 @@ def integrate(func,a,b,*args,rtol=1e-6,mul=2):
             return r1_val,err
         last_err = err
     return r1_val,err
+
+int_vector = np.vectorize(integrate)
 # %% codecell
 
 a, b = 0, 1
@@ -62,13 +64,11 @@ for rtol in rtols:
 ### Exercise 2
 # %% codecell
 
-int_vector = np.vectorize(integrate)
-
 def d_l_astropy(z, H0=70.0, Om0=0.3, OmL=0.7):
     cosmo = LambdaCDM(H0=H0, Om0=Om0, Ode0=OmL)
     return cosmo.luminosity_distance(z=z)
 
-def d_l(z,rtol=1.e-6,H0=70.0,Om0=0.3,OmL=0.7,clight=None):
+def d_l(z,int_function,rtol=1.e-6,H0=70.0,Om0=0.3,OmL=0.7,clight=None):
     units = False
     if clight == None:
         try:
@@ -88,7 +88,7 @@ def d_l(z,rtol=1.e-6,H0=70.0,Om0=0.3,OmL=0.7,clight=None):
         def f(x):
             E = np.sqrt(Om0*((1+x)**3) + OmK*((1+x)**2) + OmL)
             return 1/E
-        dc,err = int_vector(f,0,z,rtol=rtol)
+        dc,err = int_function(f,0,z,rtol=rtol)
 
         if OmK > 0:
             dc = (1/np.sqrt(OmK)) * np.sinh(np.sqrt(OmK) * dc)
@@ -114,7 +114,7 @@ for Om0,OmL in vals:
     print("#############################")
     print(f'Om0 = {Om0:.1f}, OmL = {OmL:.1f}, OmK = {OmK:.1f}')
     astropy_vals = d_l_astropy(z,H0=H0,Om0=Om0,OmL=OmL)
-    my_vals = d_l(z,H0=H0,Om0=Om0,OmL=OmL,rtol=1.00e-8)
+    my_vals = d_l(z,int_vector,H0=H0,Om0=Om0,OmL=OmL,rtol=1.00e-8)
     for zd,my_val,astropy_val in zip(z,my_vals,astropy_vals):
         #print(zd,my_val,astropy_val)
         print(f'   z={zd:.3f};  astropy value = {astropy_val:>11.5f};  my value = {my_val:>11.5f}')
@@ -146,8 +146,8 @@ print("read sample of %d supernovae..."%(nsn))
 
 # %% codecell
 
-def calculate_pred(z,M,H0=70.0,Om0=0.3,OmL=0.7,rtol=1.e-8):
-    dl = d_l(z,H0=H0,Om0=Om0,OmL=OmL,rtol=rtol)
+def calculate_pred(z,M,int_func,H0=70.0,Om0=0.3,OmL=0.7,rtol=1.e-8):
+    dl = d_l(z,int_func,H0=H0,Om0=Om0,OmL=OmL,rtol=rtol)
     try:
         dl = dl/u.Mpc
     except:
@@ -172,7 +172,7 @@ def get_mean_bins(zsn,msn,nbins=20):
 
     return np.array(to_check),np.array(means)
 
-def find_best_values(zsn,msn,pred_func,
+def find_best_values(zsn,msn,pred_func,int_func,
                     start_m=0,end_m=-25,step_m=-1,
                     start_Om0=0,end_Om0=1,nsteps_Om0=10,
                     start_OmL=0,end_OmL=1,nsteps_OmL=10,
@@ -186,10 +186,10 @@ def find_best_values(zsn,msn,pred_func,
     best_Om0 = 0
     best_OmL = 0
     for OmL in np.linspace(start_OmL,end_OmL,nsteps_OmL):
-        for Om0 in np.linspace(start_Om0,end_Om0,nsteps_Om0):
+        for Om0 in np.linspace(start_Om0,1-OmL,nsteps_Om0):
             found_better = False
             for M in np.arange(best_M,end_m+step_m,step_m):
-                pred = pred_func(zs,M,Om0=Om0,OmL=OmL)
+                pred = pred_func(zs,M,int_func,Om0=Om0,OmL=OmL)
                 diff = np.sum((means-pred)**2)
                 if diff < best_diff:
                     found_better = True
@@ -204,13 +204,13 @@ def find_best_values(zsn,msn,pred_func,
 
     return best_M, best_Om0, best_OmL
 
-M, Om0, OmL = find_best_values(zsn,msn,calculate_pred,nsteps=30)
+M, Om0, OmL = find_best_values(zsn,msn,calculate_pred,int_vector,nsteps=30)
 
 zs_plot = np.linspace(np.min(zsn),np.max(zsn),100)
 
 fig, (plot) = plt.subplots(1,1)
 plot.scatter(zsn,msn,s=0.2,label="JLA Data",color="green",alpha=0.8)
-plot.plot(zs_plot,calculate_pred(zs_plot,M,Om0=Om0,OmL=OmL),label="Model",color="red",alpha=0.8)
+plot.plot(zs_plot,calculate_pred(zs_plot,M,int_vector,Om0=Om0,OmL=OmL),label="Model",color="red",alpha=0.8)
 plot.legend()
 plot.set_xlabel("Z")
 plot.set_ylabel("Magnitude")
@@ -219,7 +219,37 @@ fig.suptitle("Magnitude vs Redshift for Supernovas from Betoule et al.",fontsize
 fig.tight_layout()
 plt.show()
 
+# %% codecell
 
-#calculate_pred(zsn,25)
+def rom_recursive(func,a,b,m,nsteps,*args):
+    if m == 0:
+        return trapzd(func,a,b,nsteps,*args)
+    return (1/((4**m) - 1)) * ((4**m)*rom_recursive(func,a,b,m-1,nsteps*2) - rom_recursive(func,a,b,m-1,nsteps))
 
+def int_rom(func,a,b,max_m=50,rtol=1.e-6):
+    last = rom_recursive(func,a,b,0,1)
+    err = 0
+    for m in range(1,max_m+1):
+        current = rom_recursive(func,a,b,m,1)
+        if current == 0:
+            return current,err
+        else:
+            err = np.abs(1. - last/current)
+            if err < rtol:
+                return current,err
+        last = current
+    return current,err
+
+# %% codecell
+
+a, b = 0, 1
+func = np.exp
+exact = func(b) - func(a)
+rtols = [1*10**-i for i in range(2,15,2)]
+for rtol in rtols:
+    my_val,est_err = int_rom(func,a,b,rtol=rtol)
+    my_err = np.abs(my_val/exact -1.)
+    sci_val = romberg(func,a,b,tol=rtol)
+    sci_err = np.abs(sci_val/exact -1.)
+    print(f'for rtol = {rtol:.0e}, my romberb frac error = {my_err:.5e}, scipy error = {sci_err:.5e}')
 # %% codecell
