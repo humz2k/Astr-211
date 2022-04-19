@@ -314,3 +314,62 @@ plt.show()
 # %% markdown
 ## Question 3
 # %% codecell
+url = 'http://astro.uchicago.edu/~andrey/classes/a205/data/bradford16_fig1.fits'
+b16 = fits.getdata(url)
+
+# width of the HI 21 cm line = proxy for rotation velocity in km/s
+vrot = b16['VW20I'];
+# log of Vrot sorted in increasing value
+isort = np.argsort(vrot)
+x = np.log10(vrot)
+# log10 of the gas mass and star mass (aka the "baryons")
+y = b16['MBARYON'];
+x, y = x[isort], y[isort]
+# %% codecell
+plt.figure(figsize=(3.,3.))
+plt.xscale('log'); plt.yscale('log')
+plt.xlim([10.,500.]); plt.ylim([1.e7,1.e12])
+plt.xlabel(r'$V_{\rm rot}\rm\ (km/s)$'); plt.ylabel(r'$M_{\rm bar}\ (M_\odot)$')
+plt.scatter(10**x, 10.**y,marker='.',c='green',s=5.,alpha=0.5,edgecolor='none', label='Bradford et al. 2016',zorder=0)
+
+orders = [1,10,100]
+smoothings = [10,100,1000]
+for idx,order in zip(list(range(len(orders)))[::-1],orders):
+    poly_regression = poly_fit(x,y,method="polynomial",porder=order)
+
+    n_xs = 100
+    min,max = np.min(x),np.max(x)
+    xs = np.linspace(min,max,n_xs)
+    plt.plot(10**xs,10**poly_regression(xs),label="Polynomial Order: " + str(order),zorder=2+idx,linewidth=1,alpha=(idx+1)/len(orders))
+for idx,smoothing in enumerate(smoothings):
+    spline_regression = poly_fit(x,y,method="splreg",s=smoothing)
+
+    n_xs = 100
+    min,max = np.min(x),np.max(x)
+    xs = np.linspace(min,max,n_xs)
+    plt.plot(10**xs,10**spline_regression(xs),label="Spline Smoothing: " + str(smoothing),zorder=1+idx,linewidth=1,alpha=(idx+1)/len(smoothings))
+
+plt.legend(loc='upper left')
+plt.show()
+# %% codecell
+plt.figure(figsize=(3.,3.))
+plt.xscale('log'); plt.yscale('log')
+plt.xlim([10.,500.]); plt.ylim([1.e7,1.e12])
+plt.xlabel(r'$V_{\rm rot}\rm\ (km/s)$'); plt.ylabel(r'$M_{\rm bar}\ (M_\odot)$')
+plt.scatter(10**x, 10.**y,marker='.',c='green',s=5.,alpha=0.5,edgecolor='none', label='Bradford et al. 2016',zorder=0)
+
+orders = [1]
+smoothings = [1000]
+for order,smoothing in zip(orders,smoothings):
+    poly_regression = poly_fit(x,y,method="polynomial",porder=order)
+    spline_regression = poly_fit(x,y,method="splreg",s=smoothing)
+
+    n_xs = 100
+    min,max = np.min(x),np.max(x)
+    xs = np.linspace(min,max,n_xs)
+    plt.plot(10**xs,10**poly_regression(xs),label="Polynomial Order: " + str(order),zorder=2,linewidth=1)
+    plt.plot(10**xs,10**spline_regression(xs),label="Spline Smoothing: " + str(smoothing),zorder=1,linewidth=1)
+
+plt.legend(loc='upper left')
+plt.show()
+# %% codecell
