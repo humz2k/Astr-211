@@ -33,10 +33,6 @@ plot_pretty()
 ## Question 1
 
 # %% codecell
-ntr = 30
-xtr = np.linspace(1., 6., ntr)
-ftr = ftrain(xtr, scale=1.)
-
 def poly_fit(xtr, ftr,  method='polynomial', porder=None, s=0.):
     assert method in ['polynomial','splint','splreg']
     if method == 'polynomial':
@@ -305,7 +301,7 @@ plt.xlabel("OmL")
 plt.ylabel("d_l frac error")
 plt.ylim(1e-20,1e-2)
 plt.yscale('log')
-plt.legend(loc="upper left")
+plt.legend(loc="lower right")
 plt.tight_layout()
 plt.show()
 # %% markdown
