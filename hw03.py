@@ -39,10 +39,15 @@ ftr = ftrain(xtr, scale=1.)
 def poly_fit(xtr, ftr,  method='polynomial', porder=None, s=0.):
     assert method in ['polynomial','splint','splreg']
     if method == 'polynomial':
-        pass
+        assert porder != None
+        assert 0 <= porder and porder <= np.size(xtr)
+
+        if porder == xtr.size - 1:
+            return np.linalg.solve(xtr,ftr)
+
     elif method == 'splint':
-        pass
+        assert porder in [0,1,2,3]
     elif method == 'splreg':
         pass
 
-poly_fit(xtr,ftr)
+print(poly_fit(xtr,ftr,porder=xtr.size - 1))
