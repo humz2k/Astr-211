@@ -38,7 +38,7 @@ def d_l_tilde_astropy(z, H0, Om0, OmL, clight=2.99792e5):
     cosmo = LambdaCDM(H0=H0, Om0=Om0, Ode0=OmL)
 
     return cosmo.luminosity_distance(z=z) / u.Mpc / (clight/H0)
-# %% codecell
+
 def get_dl_train_test(ntrain=15, ntest=100, z=1.0, H0=70.,
                       om0min=0., om0max = 1., omlmin=0., omlmax=1., spacing=np.linspace):
 
@@ -62,6 +62,8 @@ def get_dl_train_test(ntrain=15, ntest=100, z=1.0, H0=70.,
                 dl_test[i,j] = d_l_tilde_astropy(z, H0, omd, omld)
 
     return om0tr, omltr, om0t, omlt, dl_train, dl_test
+# %% markdown
+## Question 1a
 # %% codecell
 def chebyshev_nodes1(a, b, N):
     return (a + 0.5*(b-a)*(1. + np.cos((2.*np.arange(N)+1)*np.pi/(2.*(N+1)))))[::-1]
@@ -99,10 +101,6 @@ def polyfit2d(xtr, ytr, ftr, order=None):
     return np.linalg.lstsq(s.T, np.ravel(ftr), rcond=None)[0]
 
 def poly2d(xtest, ytest, a):
-    '''
-    Compute values of the 2D polynomial given the coefficients in 1d array a
-    at points given by 2d arrays xtest and ytest (generated using meshgrid)
-    '''
     order1 = np.rint(a.size**0.5).astype(int)
     return np.polynomial.polynomial.polyval2d(xtest, ytest, a.reshape((order1,order1)))
 
@@ -139,127 +137,14 @@ for z in zs:
     frac_err.append(np.nanmax(get_frac_err(ntrain=ntrain,z=z,spacing=spacing,kx=5,ky=5,fit_type="spline")))
 
 # %% codecell
-plt.plot(zs,[1e-4]*len(zs),label="$1\times10^4$")
-plt.scatter(zs,frac_err)
-plt.legend()
+plt.plot(zs,[1e-4]*len(zs),label="Acceptable Error: $1e-4$",color="green",linewidth=1)
+plt.scatter(zs,frac_err,s=4,label="Cal Frac Error")
+plt.xlabel("z")
+plt.ylabel("Frac Error")
+plt.legend(loc = "upper left",framealpha=1)
 plt.show()
-
 # %% markdown
-# **Task 1a. (4 points)**  Use functions above that generate 2D grids of d_L_tilde values. Try different numbers of training points along 1 dimension for the 2d spline approximation for $\tilde{d}_L$ for the ranges $\Omega_{\rm m0}=[0,1]$ and $\Omega_{\Lambda}=[0,1]$ and  find the minimal number of training points for which we can ensure the fractional error of $\tilde{d}_L$ $<10^{-4}$  for the entire range of $z\in [0,2]$.
-#
-# You should
-#
-# * Report the minimal number of training points that you find.
-#
-# * Present a calculation or a plot that demonstrates that fractional error is smaller than $10^{-4}$ for the entire range of  $z\in [0,2]$.
-#
-# **Note:** There are several different SciPy routines that can be used for this.  I recommend using function <tt>scipy.interpolate.RectBivariateSpline(x, y, z, s=0, kx=3, ky=3)</tt>, where $z$ is the array of function values tabulated at training points in vectors $x$ and $y$, $s=0$ indicates interpolation (no smoothing), parameters <tt>kx=3, ky=3</tt> specify that cubic splines should be used in $x$ and $y$ variables. Example of using this function is shown below (you can read about other available options and see examples of how they are used <a href="https://mmas.github.io/interpolation-scipy">here</a>). Examples of how this function is used to construct 2D spline approximation is available in [08_multid_optimization_class](https://drive.google.com/file/d/1-ptIvIvbRqtObk8x09ausJanXcqL8pJ0/view?usp=sharing) notebook.
-#
-# %% markdown
-# **Task 1b (6 points).** Using functions <tt>polyfit2d</tt> and <tt>poly2d</tt> below construct 2D polynomial approximations of $\tilde{d}_L(z,\Omega_{\rm m0}, \Omega_\Lambda)$ for a given input single value of redshift $z$ and for ranges of the $\Omega_{\rm m0}$ and $\Omega_\Lambda)$ parameters of $\Omega_{\rm m0}\in [0,1]$ and $\Omega_\Lambda\in[0,1]$.
-#
-# Try different number of training points and polynomial order and try to find the minimal number and order that ensures the target fractional accuracy of $<10^{-4}$ for any $z$ in the interval $z\in [0,2]$.
-#
-# You should:
-#
-# * Report the minimal number of training points that you find.
-#
-# * Present a calculation or a plot that demonstrates that fractional error is smaller than $10^{-4}$ for the entire range of  $z\in [0,2]$.
-#
-#
-# Based on the results of 1a and 1b, state your conclusions about the optimal method for approximating $\tilde{d}_L(z,\Omega_{\rm m0}, \Omega_\Lambda)$ with this target accuracy.
-# %% codecell
-def polyfit2d(xtr, ytr, ftr, order=None):
-    '''
-    Parameters:
-        xtr, ytr - 1d numpy vectors with training points of x and y
-        ftr - function values at xtr, ytr values
-        order - int, order of the polynomial
-
-    Returns:
-        coefficients of the 2D polynomial
-    '''
-    # generate 2d coordinates on a rectangular grid
-    x, y = np.meshgrid(xtr, ytr)
-    # coefficient array, up to x^kx, y^ky
-    coeffs = np.ones((order+1, order+1))
-    # array that will contain polynomial term values
-    s = np.zeros((coeffs.size, x.size))
-
-    # construct the 2D matrix of values for each polynomial term i, j
-    for index, (j, i) in enumerate(np.ndindex(coeffs.shape)):
-        # do not include powers greater than order
-        if order is not None and i + j > order:
-            arr = np.zeros_like(x)
-        else:
-            arr = x**i * y**j # coeffs[i, j] *
-        s[index] = arr.flatten()
-
-    # solve for the polynomial coefficients using least squares approximation of ftr values
-    return np.linalg.lstsq(s.T, np.ravel(ftr), rcond=None)[0]
-
-def poly2d(xtest, ytest, a):
-    '''
-    Compute values of the 2D polynomial given the coefficients in 1d array a
-    at points given by 2d arrays xtest and ytest (generated using meshgrid)
-    '''
-    order1 = np.rint(a.size**0.5).astype(int)
-    return np.polynomial.polynomial.polyval2d(xtest, ytest, a.reshape((order1,order1)))
-
-# %% codecell
-def polyfit2d(xtr, ytr, ftr, kx=3, ky=3, order=None):
-    '''
-    Two dimensional polynomial fitting by least squares.
-    Fits the functional form f(x,y) = z.
-
-    Notes
-    -----
-    Resulting fit can be plotted with:
-    np.polynomial.polynomial.polygrid2d(x, y, soln.reshape((kx+1, ky+1)))
-
-    Parameters:
-    ----------
-    xtr, ytr: array-like, 1d
-        xtr and ytr coordinates.
-    ftr: 2d numpy array
-        f(xgtr, ygtr) values evaluated on meshgrid of xtr and ytr vectors to fit by polynomial
-    kx, ky: int, default is 3
-        Polynomial order in x and y, respectively.
-    order: int or None, default is None
-        If None, all coefficients up to maxiumum kx, ky, ie. up to and including x^kx*y^ky, are considered.
-        If int, coefficients up to a maximum of kx+ky <= order are considered.
-
-    Returns:
-    -------
-    Return paramters from np.linalg.lstsq.
-
-    soln: np.ndarray
-        Array of polynomial coefficients.
-    residuals: np.ndarray
-    rank: int
-    s: np.ndarray
-
-    '''
-
-    # grid coords
-    x, y = np.meshgrid(xtr, ytr)
-    # coefficient array, up to x^kx, y^ky
-    coeffs = np.ones((kx+1, ky+1))
-
-    # solve array
-    V = np.zeros((coeffs.size, x.size))
-
-    # construct Vandermonde matrix: for each coefficient produce array x^i, y^j
-    for index, (j, i) in enumerate(np.ndindex(coeffs.shape)):
-        # do not include powers greater than order
-        if order is not None and i + j > order:
-            arr = np.zeros_like(x)
-        else:
-            arr = coeffs[i, j] * x**i * y**j
-        V[index] = arr.flatten()
-
-    # do leastsq fitting and return leastsq result
-    return np.linalg.lstsq(V.T, np.ravel(ftr), rcond=None)[0]
+## Question 1b
 # %% codecell
 
 # %% markdown
