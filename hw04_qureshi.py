@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from astropy.cosmology import LambdaCDM
 import astropy.units as u
 import scipy.interpolate
+from scipy import stats
 
 def plot_pretty(dpi=200,fontsize=10):
     plt.rcParams['figure.dpi']= dpi
@@ -158,27 +159,125 @@ plt.ylabel("Frac Error")
 plt.legend(loc = "upper left",framealpha=1)
 plt.show()
 
-
-# %% markdown
-# ***Note:*** the algorithm requires selection of 3 random indices of members, excluding the current member that is being mutated. As always, there are multiple ways of doing this in Python. Below is one example of how this can be done using NumPy functions
 # %% codecell
-
 def rosenbrock(x):
     """The Rosenbrock "banana" function
     x is a vector of points in 2 or more dimensional space
     """
     return sum(100.0*(x[1:]-x[:-1]**2.0)**2.0 + (1-x[:-1])**2.0)
 
-def de_implementation(func=rosenbrock,x0=None):
+def minimize_de(func=rosenbrock, x0=None, atol=1.e-6, s=0, smin=None, bounds=None):
     assert type(x0) is not None
     npop = x0.shape[0]
+    nd = x0.shape[1]
     xnow = np.copy(x0)
     fnow = np.empty(npop)
-    print(npop)
+    for i in range(npop):
+        fnow[i] = func(xnow[i])
+    xnext = np.zeros_like(xnow)
+    has_bounds = True
+    if isinstance(bounds, type(None)):
+        has_bounds = False
+    else:
+        bounds = bounds.T
+        bounds[1] -= 1
 
-x0 = np.array([0,1])
-de_implementation(x0=x0)
-print(x0)
+    while True:
+        inds = np.ma.arange(npop)
+        delta = 0
+        for i in range(npop):
+            inds[i] = np.ma.masked
+            while True:
+                ir1,ir2,ir3 = np.random.choice(inds.compressed(),3,replace=False)
+                inds.mask = np.ma.nomask
+                if smin != None:
+                    s = np.random.uniform(smin,1)
+                xtry = xnow[ir3] + s * (xnow[ir1] - xnow[ir2])
+                if has_bounds:
+                    if np.all(np.logical_xor(*((xtry-bounds) > 0))):
+                        break
+                else:
+                    break
+            f_xtry = func(xtry)
+            if f_xtry <= fnow[i]:
+                temp_delta = np.abs(fnow[i] - f_xtry)
+                xnext[i] = xtry
+                fnow[i] = f_xtry
+                if temp_delta > delta:
+                    delta = temp_delta
+            else:
+                xnext[i] = xnow[i]
+        xnow = np.copy(xnext)
+        if delta < atol:
+            break
+    out = []
+    for i in range(xnow.shape[1]):
+        out.append(stats.mode(xnow[:,i])[0])
+    return np.array(out).T[0]
+
+def get_error(de_func=minimize_de,s=0,smin=0,npop=10,nd=2,bounds=np.array([(20,-20)]),known_minimum=np.array([1.,1.]),repeats=20):
+    if nd != bounds.shape[0]:
+        bounds = np.repeat(np.reshape(bounds[0],(1,bounds[0].shape[0])),nd,axis=0)
+    high,low = np.repeat(bounds.T,npop,axis=1)
+    avg_error = np.zeros(repeats,dtype=np.float64)
+    for i in range(repeats):
+        x0 = np.reshape(np.random.uniform(high=high,low=low),(npop,nd))
+        minimum = de_func(x0 = x0,bounds = bounds,smin=smin,s=s)
+        avg_error[i]=np.max(np.abs(minimum-known_minimum))
+    return avg_error
+
+def get_data(npops,repeats,verbose=True,**args):
+    npops = np.array(npops)
+    errors = np.zeros((len(npops),repeats))
+    for idx,npop in enumerate(npops):
+        if verbose:
+            print(str(round((idx/len(npops))*100,1)) + "% done")
+        errors[idx] = get_error(npop = npop, repeats = repeats, **args)
+    return npops,errors
+
+npops = (10**(np.linspace(1,2,5))).astype(np.int)
+repeats = 20
+R5s = {}
+for smin in np.linspace(0,1,4):
+    npops,errors = get_data(npops,repeats,known_minimum=np.array([1,1,1,1,1]),nd=5)
+    R5s[smin] = (npops,errors)
+
+R2s = {}
+for smin in np.linspace(0,1,4):
+    npops,errors = get_data(npops,repeats,known_minimum=np.array([1,1]),nd=2)
+    R2s[smin] = (npops,errors)
+
+# %% codecell
+
+#print()
+for smin in R5s.keys():
+    npops,errors = R5s[smin]
+    plt.scatter(np.repeat(npops,errors.shape[1]),errors.flatten(),s=1,alpha=0.5)
+    plt.plot(npops,np.mean(errors,axis=1),label="smin="+str(smin))
+
+plt.xscale('log')
+plt.yscale('log')
+plt.title("R5")
+plt.legend()
+plt.show()
+
+# %% codecell
+
+#print()
+for smin in R2s.keys():
+    npops,errors = R2s[smin]
+    plt.scatter(np.repeat(npops,errors.shape[1]),errors.flatten(),s=1,alpha=0.5)
+    plt.plot(npops,np.mean(errors,axis=1),label="smin="+str(smin))
+
+plt.xscale('log')
+plt.yscale('log')
+plt.title("R2")
+plt.legend()
+plt.show()
+
+
+    #print(np.max(np.abs(minimum-compare)))
+#print(x0)
 
 # %% markdown
 # ***Таск 2b (5 points).*** Test your implementation using Rosenbrock function implemented below in 2- and 5-dimensions. Try different number of population members and $s$ values and choices for how $s$ is chosen and examine how results change and for what number of population members the algorithm returns correct minimum value reliably ($[1,1]$ in 2D and $[1, 1, 1, 1, 1]$ in 5D).
