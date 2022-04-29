@@ -128,17 +128,22 @@ spacing = np.linspace
 min_z = 0
 max_z = 2
 nzs = 10
-ntrain = 37
+ntrain_a = 37
+ntrain_b = 100
 
-frac_err = []
+frac_err_b = []
+frac_err_a = []
 zs = np.linspace(min_z,max_z,nzs+1)[1:]
 
 for z in zs:
-    frac_err.append(np.nanmax(get_frac_err(ntrain=ntrain,z=z,spacing=spacing,kx=5,ky=5,fit_type="spline")))
+    frac_err_a.append(np.nanmax(get_frac_err(ntrain=ntrain_a,z=z,spacing=spacing,kx=5,ky=5,fit_type="spline")))
+
+for z in zs:
+    frac_err_b.append(np.nanmax(get_frac_err(ntrain=ntrain_b,z=z,spacing=spacing,kx=5,ky=5,fit_type="poly")))
 
 # %% codecell
 plt.plot(zs,[1e-4]*len(zs),label="Acceptable Error: $1e-4$",color="green",linewidth=1)
-plt.scatter(zs,frac_err,s=4,label="Cal Frac Error")
+plt.scatter(zs,frac_err_a,s=4,label="Cal Frac Error")
 plt.xlabel("z")
 plt.ylabel("Frac Error")
 plt.legend(loc = "upper left",framealpha=1)
@@ -146,78 +151,35 @@ plt.show()
 # %% markdown
 ## Question 1b
 # %% codecell
+plt.plot(zs,[1e-4]*len(zs),label="Acceptable Error: $1e-4$",color="green",linewidth=1)
+plt.scatter(zs,frac_err_b,s=4,label="Cal Frac Error")
+plt.xlabel("z")
+plt.ylabel("Frac Error")
+plt.legend(loc = "upper left",framealpha=1)
+plt.show()
+
 
 # %% markdown
-# ## <font color='blue'>Exercise 2: implementing and testing  Differential Evolution algorithm for minimization (25 points + 5 extra-credit points)</font>
-#
-# **Background.** Minimization in many dimensions is generally a complicated task. However, a class of <a href="https://en.wikipedia.org/wiki/Differential_evolution">Differential Evolution</a> (DE) algorithms developed from the initial ideas of R. Storn and K. Price in 1997 (<a href="https://link.springer.com/article/10.1023%2FA%3A1008202821328">Storn & Price 1997</a>), are relatively simple to implement, work in arbitrary number of dimensions, do not require function derivatives, allow imposing bounds on the domain, and are quite efficient in minimizing multi-dimensional functions.
-#
-# ### <font color='blue'>What you are learning in this exercise:</font>
-#
-# * how to implement a general multi-dimensional minimization DE algorithm
-# * how to find minimum of a function in practice.
-# %% markdown
-# The simplest version of the differential evolution algorithm described in detail in the notebook [08_optimization](https://drive.google.com/file/d/1oq838Jla7r6upwYf1uE7Oa6ctua0gIqU/view?usp=sharing),  can be presented as the following pseudo-code:
-#
-#     npop = np.size(x0)[0] # the number of population members
-#     fnow = func(xnow)
-#     xnow = np.copy(x0)
-#     xnext = np.zeros_like(xnow)
-#     ....
-#     while some convergence criterion is not met:
-#         # xnow is a vector of coordinate vectors of the current population
-#         # xnext is a vector of coordinate vector of the next gen population
-#         for i in range(npop):
-#             # generate random unique indices  ir1, ir2, ir3
-#             # where all indices are not equal to each other and not equal to i
-#             # s can be a constant for large npop, but it's more safe to make it a
-#             # random number drawn from uniform distribution in the range [smin,1]
-#             xtry = xnow[ir3] + s * (xnow[ir1] - xnor[ir2])
-#             if func(xtry) <= fnow[i]:
-#                 xnext[i] = xtry
-#             else:
-#                 xnext[i] = xnow[i]
-# %% markdown
-#
-#
-# %% markdown
-# **Task 2a. (20 points)** Use pseudo-code of the DE algorithm above to implement DE minimization function with the following interface (15 points):
-#
-#     def minimize_de(func, x0, atol=1.e-6, s=0.1, bounds=None):
-#         """
-#         Parameters:
-#         ------------
-#         func - Python function object
-#                function to minimize, should expect x0 as a parameter vector
-#         x0   - vector of real numbers of shape (npop, nd),
-#                 where npop is population size and nd is the number of func parameters
-#         atol - float
-#                 absolute tolerance threshold for change of population member positions
-#         s    - float
-#                s parameter for scaling steps, the step size will be dwarf from uniform distribution between s and 1
-#         bounds - array of tuples
-#                 bounds for the minimization exploration; define the region in which to search for the minimum
-#         """
-#
-#
-# ***Note:*** guard against for the cases when the small number of population members is used when population does not move at a given mutation stage, so that this does not result in premature stopping of the algorithm.
-#
-# ***Note:*** Try to "vectorize" as much of the algorithm as possible. This code can be fully vectorized with only one loop for the mutations of the population.
-#
-# %% markdown
-# ***Note:*** Assuming that we are searching for a minimum within some rectangular domain defined by the minimum and maximum values along each coordinate axis: $\mathbf{x}_{\rm min}$ and $\mathbf{x}_{\rm max}$, we can initialize the population members as
-#
-# $$\mathbf{x}_0 = \mathbf{x}_{\rm min} + (\mathbf{x}_{\rm max}-\mathbf{x}_{\rm min}) \cdot\mathrm{rand}(0,1),$$
-#
-# where $\mathrm{rand}(0,1)$ is a random number uniformly distributed from 0 to 1, generated using <tt>np.random.uniform</tt>.
-#
 # ***Note:*** the algorithm requires selection of 3 random indices of members, excluding the current member that is being mutated. As always, there are multiple ways of doing this in Python. Below is one example of how this can be done using NumPy functions
 # %% codecell
-npop = 10 # number of population members
-inds = np.arange(npop) # create a list of indices from 0 to npop-1
-inds = np.delete(inds,7) # remove specific index 7 from inds
-np.random.shuffle(inds) # shuffle indices randomly
-print(inds[0], inds[1], inds[2]) # print the first 3 of the shuffled indices
+
+def rosenbrock(x):
+    """The Rosenbrock "banana" function
+    x is a vector of points in 2 or more dimensional space
+    """
+    return sum(100.0*(x[1:]-x[:-1]**2.0)**2.0 + (1-x[:-1])**2.0)
+
+def de_implementation(func=rosenbrock,x0=None):
+    assert type(x0) is not None
+    npop = x0.shape[0]
+    xnow = np.copy(x0)
+    fnow = np.empty(npop)
+    print(npop)
+
+x0 = np.array([0,1])
+de_implementation(x0=x0)
+print(x0)
+
 # %% markdown
 # ***Таск 2b (5 points).*** Test your implementation using Rosenbrock function implemented below in 2- and 5-dimensions. Try different number of population members and $s$ values and choices for how $s$ is chosen and examine how results change and for what number of population members the algorithm returns correct minimum value reliably ($[1,1]$ in 2D and $[1, 1, 1, 1, 1]$ in 5D).
 #
@@ -229,11 +191,6 @@ print(inds[0], inds[1], inds[2]) # print the first 3 of the shuffled indices
 #
 # * Compare results of your function to results of the <tt>scipy.optimize.differential_evolution</tt>
 # %% codecell
-def rosenbrock(x):
-    """The Rosenbrock "banana" function
-    x is a vector of points in 2 or more dimensional space
-    """
-    return sum(100.0*(x[1:]-x[:-1]**2.0)**2.0 + (1-x[:-1])**2.0)
 
 # %% markdown
 # ## <font color='blue'> Exercise 3: implementing cross-over stage of the DE algorithm (extra-credit 10 points).</font>
