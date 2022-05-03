@@ -100,3 +100,5 @@ print("Max Frac Err:",np.max(sampled_frac_err))
 print("Min Frac Err:",np.min(sampled_frac_err))
 print("Mean Frac Err:",np.mean(sampled_frac_err))
 # %% codecell
+def likelihood(emb,ex1,ecsn):
+    pass
