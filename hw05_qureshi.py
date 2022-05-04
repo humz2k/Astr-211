@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from astropy.cosmology import LambdaCDM
 import astropy.units as u
 import scipy.interpolate
+import scipy.optimize
 
 # the following commands make plots look better
 def plot_pretty(dpi=150,fontsize=15):
@@ -100,5 +101,50 @@ print("Max Frac Err:",np.max(sampled_frac_err))
 print("Min Frac Err:",np.min(sampled_frac_err))
 print("Mean Frac Err:",np.mean(sampled_frac_err))
 # %% codecell
-def likelihood(emb,ex1,ecsn):
-    pass
+def likelihood(x, zCMB, mB, emB, x1, ex1, csn, ecsn, dlz, constants=constants):
+    om0, omL, M0, a, b = x
+    sig_mu_squared = emB**2 + (a**2) * (ex1**2) + (b**2) * (ecsn**2)
+    dl = np.array([dlz[z](om0,omL) for z in zCMB]).flatten()
+    mu = 5 * np.log10(dl) + 25
+    mu_obs = mB - (M0 + 5*np.log10(constants["clight"]/constants["H0"]) + 25)
+    del_mu_squared = (mu_obs - mu)**2
+    first = del_mu_squared/sig_mu_squared
+    second = np.log(2*np.pi*sig_mu_squared)
+    return -0.5*np.sum(first) - 0.5*np.sum(second)
+# %% markdown
+#### Differential Evolution Arguments
+# %% codecell
+func_kwargs = {
+"zCMB": zCMB,
+"mB": mB,
+"emB": emB,
+"x1": x1,
+"ex1": ex1,
+"csn": csn,
+"ecsn": ecsn,
+"dlz": dlz,
+"constants": constants
+}
+bounds = ((0,1),(0,1),(20,28),(0.05,0.3),(1,5))
+
+kwargs = {
+"popsize": 15,
+"tol": 0.01,
+"atol": 0
+}
+# %% codecell
+result = scipy.optimize.differential_evolution(likelihood,bounds,args=func_kwargs.values(),**kwargs)
+print(result)
+best_om0, best_omL, best_M0, best_a, best_b = result.x
+# %% markdown
+$$$
+\begin{align}
+\int_{\frac{1}{a}}^{a}g(x)\,\mathrm{d}x &= 1 \\
+\int_{\frac{1}{a}}^{a}\frac{A}{\sqrt{x}}\,\mathrm{d}x &= 1 \\
+A\int_{\frac{1}{a}}^{a}x^{-\frac{1}{2}}\,\mathrm{d}x &= 1 \\
+A\left[ 2x^{\frac{1}{2}} \right]_{\frac{1}{a}}^a &= 1 \\
+A(2\sqrt{a}-2\sqrt{\frac{1}{a}}) &= 1 \\
+A &= \frac{1}{(2\sqrt{a}-2\sqrt{\frac{1}{a}})} \\
+A &= \frac{1}{2(\sqrt{a}-\sqrt{\frac{1}{a}})} \\
+\end{align}
+$$$
