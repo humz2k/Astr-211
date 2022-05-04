@@ -299,4 +299,4 @@ plot_2d_dist(x, y, xlim=[-5, 5], ylim =[-5,5],
              nxbins=100, nybins=100,
              clevs=conflevs,
              xlabel=r'${\rm intercept}\ c$',
-             ylabel=r'${\rm slope}\ b$', figsize=(3,3))
+             ylabel=r'${\rm slope}\ b$', figsize=(5,5))
