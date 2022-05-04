@@ -4,6 +4,9 @@ from astropy.cosmology import LambdaCDM
 import astropy.units as u
 import scipy.interpolate
 import scipy.optimize
+from matplotlib.colors import LogNorm
+#import warnings
+#warnings.filterwarnings("ignore")
 
 # the following commands make plots look better
 def plot_pretty(dpi=150,fontsize=15):
@@ -18,7 +21,7 @@ def plot_pretty(dpi=150,fontsize=15):
     plt.rc('ytick.minor', pad=5)
     plt.rc('lines', dotted_pattern = [2., 2.])
     plt.rc('legend',fontsize=5)
-    plt.rcParams['figure.figsize'] = [5, 3]
+    plt.rcParams['figure.figsize'] = [5, 5]
 
 plot_pretty()
 
@@ -178,6 +181,122 @@ samples = P_inverse(np.random.uniform(size=nsamples),a)
 
 plt.plot(xs,g(xs,a),label="Analytic $g(x)$",zorder=1,linewidth=2,alpha=0.9)
 plt.hist(samples,density=True,bins=100,label="Samples",zorder=0)
+plt.xlabel("$x$")
+plt.ylabel("$g(x)$")
 plt.legend()
 plt.show()
 # %% codecell
+def lngauss_nd(x, means, icov):
+    diff = x - means
+    return -0.5 * np.dot(diff.T, np.dot(icov, diff))
+
+def mcmc_gw10(x0, logpdf = None, args = None, nsteps = 10000):
+
+    xnow = np.copy(x0)
+    chain = []
+    indexes = np.repeat(np.reshape(np.arange(len(xnow)),(1,len(xnow))),len(xnow),axis=0)
+
+    mask = np.ones((len(xnow),len(xnow)),dtype=bool)
+    np.fill_diagonal(mask,False)
+
+    indexes = np.reshape(indexes.flatten()[mask.flatten()],(len(xnow),len(xnow)-1))
+
+    for step in range(nsteps):
+
+        indexes = indexes.T
+        np.random.shuffle(indexes)
+        indexes = indexes.T
+        nextindexes = np.append(np.diagonal(indexes),np.random.randint(0,len(xnow)-1))
+        xj = np.take(xnow,nextindexes,axis=0)
+
+        zr = np.reshape(P_inverse(np.random.uniform(size=len(xnow)),2),(1,len(xnow))).T
+
+        xprop = xj + (zr*(xnow-xj))
+
+        #this is the fastest way to do this (vectorizing logpdf is implemented as a for loop as well)
+        pi_xprop = np.exp(np.array([logpdf(j,*args) for j in xprop]))
+        #this is the fastest way to do this (vectorizing logpdf is implemented as a for loop as well)
+        pi_xnow = np.exp(np.array([logpdf(j,*args) for j in xnow]))
+
+        zrd = P_inverse(np.random.uniform(size=len(xnow)),2) ** (xnow.shape[1]-1)
+
+        pacc = np.clip(zrd*(pi_xprop/pi_xnow),0,1.0)
+
+        rand_tests = np.random.uniform(size=len(pacc))
+
+        accepted = rand_tests <= pacc
+
+        temp = np.copy(xnow)
+        xnow[accepted] = xprop[accepted]
+
+        chain.append(np.copy(xnow))
+    return np.stack(chain,axis=1)
+
+# %% codecell
+
+means = np.array([0., 0.])
+s1, s2, r = 1.0, 1.0, 0.95
+
+cov = [[s1**2, r*s1*s2], [r*s1*s2, s2**2]]
+
+icov = np.linalg.inv(cov)
+args = [means, icov]
+
+ndim = 2
+nwalkers = 50
+nsteps = 10000
+p0 = np.zeros(((nwalkers, ndim)))
+for d in range(ndim):
+    p0[:,d] = 0.05*np.random.normal(size=nwalkers)
+
+chain = mcmc_gw10(p0, logpdf=lngauss_nd, args=args, nsteps=nsteps)
+
+# %% codecell
+def plot_2d_dist(x,y, xlim, ylim, nxbins, nybins, figsize=(5,5), xlabel='x', ylabel='y',
+                clevs=None):
+
+    def conf_interval(x, pdf, conf_level):
+        return np.sum(pdf[pdf > x])-conf_level
+
+    fig, ax = plt.subplots(figsize=figsize)
+    plt.ylabel(ylabel)
+    plt.xlabel(xlabel)
+    plt.xlim(xlim[0], xlim[1])
+    plt.ylim(ylim[0], ylim[1])
+
+    if xlim[1] < 0.: ax.invert_xaxis()
+
+    H, xbins, ybins = np.histogram2d(x, y, bins=(np.linspace(xlim[0], xlim[1], nxbins),np.linspace(ylim[0], ylim[1], nybins)))
+
+    H = np.rot90(H); H = np.flipud(H);
+
+    X,Y = np.meshgrid(xbins[:-1],ybins[:-1])
+
+    H = H/np.sum(H)
+    Hmask = np.ma.masked_where(H==0,H)
+
+    pcol = ax.pcolormesh(X, Y,(Hmask),  cmap=plt.cm.BuPu, norm = LogNorm(), linewidth=0., rasterized=True, shading='auto')
+    pcol.set_edgecolor('face')
+
+    # plot contours if contour levels are specified in clevs
+    if clevs is not None:
+        lvls = []
+        for cld in clevs:
+            sig = scipy.optimize.brentq( conf_interval, 0., 1., args=(H,cld) )
+            lvls.append(sig)
+
+        ax.contour(X, Y, Hmask, linewidths=(1.0,0.75, 0.5, 0.25), colors='black', levels = sorted(lvls),
+                norm = LogNorm(), extent = [xbins[0], xbins[-1], ybins[0], ybins[-1]])
+
+    plt.show()
+
+conflevs = [0.6827, 0.9545]
+
+x = chain[:,:,0].flatten()
+y = chain[:,:,1].flatten()
+
+plot_2d_dist(x, y, xlim=[-5, 5], ylim =[-5,5],
+             nxbins=100, nybins=100,
+             clevs=conflevs,
+             xlabel=r'${\rm intercept}\ c$',
+             ylabel=r'${\rm slope}\ b$', figsize=(3,3))
