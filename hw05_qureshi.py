@@ -18,7 +18,7 @@ def plot_pretty(dpi=150,fontsize=15):
     plt.rc('ytick.minor', pad=5)
     plt.rc('lines', dotted_pattern = [2., 2.])
     plt.rc('legend',fontsize=5)
-    plt.rcParams['figure.figsize'] = [5, 5]
+    plt.rcParams['figure.figsize'] = [5, 3]
 
 plot_pretty()
 
@@ -137,14 +137,47 @@ result = scipy.optimize.differential_evolution(likelihood,bounds,args=func_kwarg
 print(result)
 best_om0, best_omL, best_M0, best_a, best_b = result.x
 # %% markdown
-$$$
-\begin{align}
-\int_{\frac{1}{a}}^{a}g(x)\,\mathrm{d}x &= 1 \\
-\int_{\frac{1}{a}}^{a}\frac{A}{\sqrt{x}}\,\mathrm{d}x &= 1 \\
-A\int_{\frac{1}{a}}^{a}x^{-\frac{1}{2}}\,\mathrm{d}x &= 1 \\
-A\left[ 2x^{\frac{1}{2}} \right]_{\frac{1}{a}}^a &= 1 \\
-A(2\sqrt{a}-2\sqrt{\frac{1}{a}}) &= 1 \\
-A &= \frac{1}{(2\sqrt{a}-2\sqrt{\frac{1}{a}})} \\
-A &= \frac{1}{2(\sqrt{a}-\sqrt{\frac{1}{a}})} \\
-\end{align}
-$$$
+#$$$
+#\begin{align}
+#\int_{\frac{1}{a}}^{a}g(x)\,\mathrm{d}x &= 1 \\
+#\int_{\frac{1}{a}}^{a}\frac{A}{\sqrt{x}}\,\mathrm{d}x &= 1 \\
+#A\int_{\frac{1}{a}}^{a}x^{-\frac{1}{2}}\,\mathrm{d}x &= 1 \\
+#A\left[ 2x^{\frac{1}{2}} \right]_{\frac{1}{a}}^a &= 1 \\
+#A(2\sqrt{a}-2\sqrt{\frac{1}{a}}) &= 1 \\
+#A &= \frac{1}{(2\sqrt{a}-2\sqrt{\frac{1}{a}})} \\
+#A &= \frac{1}{2(\sqrt{a}-\sqrt{\frac{1}{a}})} \\
+#\end{align}
+#$$$
+# %% markdown
+#$$$
+#\begin{align}
+#P(x) &= \int_{\frac{1}{a}}^{x}g(x')\,\mathrm{d}x'\\
+#P(x) &= \int_{\frac{1}{a}}^{x}\frac{A}{\sqrt{x'}}\,\mathrm{d}x' \\
+#P(x) &= \int_{\frac{1}{a}}^{x}\frac{A}{\sqrt{x'}}\,\mathrm{d}x' \\
+#P(x) &= A(2\sqrt{x}-2\sqrt{\frac{1}{a}}) \\
+#P^{-1}(y) &= (\frac{y}{2A}+\sqrt{\frac{1}{a}})^{2} \\
+#\end{align}
+#$$$
+# %% codecell
+def g(x,a=2):
+    A = 1/(2*(np.sqrt(a) - np.sqrt(1/a)))
+    return A/np.sqrt(x)
+
+def P(x,a=2):
+    A = 1/(2*(np.sqrt(a) - np.sqrt(1/a)))
+    return A*(2*np.sqrt(x) - 2*np.sqrt(1/a))
+
+def P_inverse(y,a=2):
+    A = 1/(2*(np.sqrt(a) - np.sqrt(1/a)))
+    return ((y/(2*A)) + np.sqrt((1/a)))**2
+
+a = 2
+xs = np.linspace(1/a,a,1000)
+nsamples = int(1e6)
+samples = P_inverse(np.random.uniform(size=nsamples),a)
+
+plt.plot(xs,g(xs,a),label="Analytic $g(x)$",zorder=1,linewidth=2,alpha=0.9)
+plt.hist(samples,density=True,bins=100,label="Samples",zorder=0)
+plt.legend()
+plt.show()
+# %% codecell
