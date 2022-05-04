@@ -5,8 +5,6 @@ import astropy.units as u
 import scipy.interpolate
 import scipy.optimize
 from matplotlib.colors import LogNorm
-#import warnings
-#warnings.filterwarnings("ignore")
 
 # the following commands make plots look better
 def plot_pretty(dpi=150,fontsize=15):
