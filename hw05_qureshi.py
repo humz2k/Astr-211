@@ -298,3 +298,12 @@ plot_2d_dist(x, y, xlim=[-5, 5], ylim =[-5,5],
              clevs=conflevs,
              xlabel=r'${\rm intercept}\ c$',
              ylabel=r'${\rm slope}\ b$', figsize=(5,5))
+# %% codecell
+x0 = result.x
+
+bounds = ((0,1),(0,1),(20,28),(0.05,0.3),(1,5))
+
+def prior(xd,bounds):
+    for bound,i in zip(bounds,xd):
+        print(bound,i)
+print(prior(x0,bounds))
